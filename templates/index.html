@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Language Learning Assistant</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .container { display: flex; flex-direction: column; gap: 20px; }
+        textarea, input { width: 100%; padding: 10px; }
+        button { padding: 10px 15px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .chat-container { border: 1px solid #ddd; padding: 15px; height: 400px; overflow-y: auto; }
+        .message { margin-bottom: 10px; padding: 8px 12px; border-radius: 5px; }
+        .user-message { background: #e3f2fd; text-align: right; }
+        .bot-message { background: #f5f5f5; }
+        .qa-pair { margin-bottom: 15px; padding: 10px; border: 1px solid #eee; }
+        .question { font-weight: bold; color: #333; }
+        .answer { color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Language Learning Assistant</h1>
+        
+        <div>
+            <h2>Process YouTube Video</h2>
+            <input type="text" id="youtubeUrl" placeholder="Enter YouTube URL">
+            <button onclick="processTranscript()">Process Transcript</button>
+        </div>
+        
+        <div id="qaSection" style="display: none;">
+            <h2>Generated Q/A Pairs</h2>
+            <div id="qaPairs"></div>
+        </div>
+        
+        <div id="chatSection" style="display: none;">
+            <h2>Chat</h2>
+            <div class="chat-container" id="chatContainer"></div>
+            <input type="text" id="userInput" placeholder="Type your message...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        function processTranscript() {
+            const url = document.getElementById('youtubeUrl').value;
+            if (!url) {
+                alert('Please enter a YouTube URL');
+                return;
+            }
+            
+            axios.post('/process_transcript', { youtube_url: url })
+                .then(response => {
+                    const qaPairs = response.data.qa_pairs;
+                    const qaContainer = document.getElementById('qaPairs');
+                    qaContainer.innerHTML = '';
+                    
+                    qaPairs.forEach(pair => {
+                        const qaDiv = document.createElement('div');
+                        qaDiv.className = 'qa-pair';
+                        qaDiv.innerHTML = `
+                            <div class="question">Q: ${pair[0]}</div>
+                            <div class="answer">A: ${pair[1]}</div>
+                        `;
+                        qaContainer.appendChild(qaDiv);
+                    });
+                    
+                    document.getElementById('qaSection').style.display = 'block';
+                    document.getElementById('chatSection').style.display = 'block';
+                })
+                .catch(error => {
+                    console.error(error);
+                    alert('Error processing transcript');
+                });
+        }
+        
+        function sendMessage() {
+            const input = document.getElementById('userInput');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            const chatContainer = document.getElementById('chatContainer');
+            
+            // Add user message
+            const userDiv = document.createElement('div');
+            userDiv.className = 'message user-message';
+            userDiv.textContent = `You: ${message}`;
+            chatContainer.appendChild(userDiv);
+            
+            input.value = '';
+            
+            // Send to server
+            axios.post('/chat', { message: message })
+                .then(response => {
+                    // Add bot response
+                    const botDiv = document.createElement('div');
+                    botDiv.className = 'message bot-message';
+                    botDiv.textContent = `Assistant: ${response.data.response}`;
+                    chatContainer.appendChild(botDiv);
+                    
+                    // Scroll to bottom
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                })
+                .catch(error => {
+                    console.error(error);
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'message bot-message';
+                    errorDiv.textContent = 'Error: Could not get response';
+                    chatContainer.appendChild(errorDiv);
+                });
+        }
+        
+        // Allow sending message with Enter key
+        document.getElementById('userInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
